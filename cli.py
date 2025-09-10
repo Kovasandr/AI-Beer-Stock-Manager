@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from app.stock_manager import build_purchase_order
 from app.ai_layer import generate_supplier_message
 from app.emailer import send_email
+from app.telegram_notify import send_message, send_table
 
 
 def main():
@@ -20,7 +21,6 @@ def main():
     po_df, summary = build_purchase_order(args.sales, args.inventory)
 
     # 2) AI-генерація “людяного” повідомлення постачальнику
-    #    Якщо OPENAI_API_KEY не заданий або сталася помилка — підставляємо коротку примітку
     try:
         ai_message = generate_supplier_message(po_df)
     except Exception as e:
@@ -33,8 +33,13 @@ def main():
     # 4) Кому надсилати
     to_email = args.supplier_email or os.getenv("SUPPLIER_EMAIL")
 
-    # 5) Надсилання (або DRY RUN — друк у лог)
+    # 5) Надсилання email (або DRY RUN — друк у лог)
     send_email(subject=subject, body=body, to_email=to_email, po_df=po_df)
+
+    # 6) Telegram-сповіщення (спрацює, якщо задані TELEGRAM_BOT_TOKEN і TELEGRAM_CHAT_ID)
+    preview = subject + "\n" + summary["report_text"].splitlines()[0]
+    send_message(preview)
+    send_table(po_df, caption=subject)
 
 
 if __name__ == "__main__":
