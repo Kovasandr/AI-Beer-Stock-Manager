@@ -1,4 +1,4 @@
-# AI Beer Stock Manager
+# AI Beer Stock Manager 
 
 Легка система для автоматичного контролю запасів і формування замовлень.
 
