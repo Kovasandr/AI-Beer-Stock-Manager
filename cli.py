@@ -1,7 +1,9 @@
 import argparse
 import os
 from dotenv import load_dotenv
+
 from app.stock_manager import build_purchase_order
+from app.ai_layer import generate_supplier_message
 from app.emailer import send_email
 
 load_dotenv()
