@@ -23,11 +23,13 @@ jobs:
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           FROM_EMAIL_APP_PASSWORD: ${{ secrets.FROM_EMAIL_APP_PASSWORD }}
           DRY_RUN: ${{ secrets.DRY_RUN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           echo "SUPPLIER_EMAIL=${SUPPLIER_EMAIL}" >> $GITHUB_ENV
           echo "FROM_EMAIL=${FROM_EMAIL}" >> $GITHUB_ENV
           echo "FROM_EMAIL_APP_PASSWORD=${FROM_EMAIL_APP_PASSWORD}" >> $GITHUB_ENV
           echo "DRY_RUN=${DRY_RUN}" >> $GITHUB_ENV
+          echo "OPENAI_API_KEY=${OPENAI_API_KEY}" >> $GITHUB_ENV
       - name: Run CLI (demo на sample_data)
         run: |
           python cli.py --sales sample_data/sales.csv --inventory sample_data/inventory.csv --supplier-email "${{ env.SUPPLIER_EMAIL }}"
