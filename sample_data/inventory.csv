@@ -1,0 +1,4 @@
+sku,name,stock,lead_days,safety_days,target_cover_days
+BEER-001,IPA Hoppy 0.5L,8,2,1,3
+BEER-002,Lager 0.5L,12,2,1,3
+SNACK-010,Chips Paprika 150g,7,2,1,3
