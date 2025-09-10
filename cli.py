@@ -20,9 +20,22 @@ def main():
     po_df, summary = build_purchase_order(args.sales, args.inventory)
 
     # 2) AI-генерація “людяного” повідомлення постачальнику
-    #    (якщо OPENAI_API_KEY не заданий або станеться помилка – повернемо простий текст)
+    #    Якщо OPENAI_API_KEY не заданий або сталася помилка — підставляємо коротку примітку
     try:
         ai_message = generate_supplier_message(po_df)
     except Exception as e:
-        ai_message = (
-            "Прим
+        ai_message = "Примітка: AI-пояснення тимчасово недоступне. Технічна довідка: " + str(e)
+
+    # 3) Формуємо тему та тіло листа (звіт + AI-пояснення)
+    subject = f"PO: Автозамовлення {summary['date']} (поз. {len(po_df)})"
+    body = summary["report_text"] + "\n\n" + ai_message
+
+    # 4) Кому надсилати
+    to_email = args.supplier_email or os.getenv("SUPPLIER_EMAIL")
+
+    # 5) Надсилання (або DRY RUN — друк у лог)
+    send_email(subject=subject, body=body, to_email=to_email, po_df=po_df)
+
+
+if __name__ == "__main__":
+    main()
