@@ -39,7 +39,7 @@ def fetch_latest_attachment():
             continue
         msg = email.message_from_bytes(msg_data[0][1])
         for part in msg.walk():
-            if part.get_content_maintype() == "multipart": 
+            if part.get_content_maintype() == "multipart":
                 continue
             if part.get("Content-Disposition") is None:
                 continue
@@ -59,13 +59,40 @@ def fetch_latest_attachment():
     M.close(); M.logout()
     raise RuntimeError(f"IMAP: не знайдено вкладення за regex {IMAP_FILENAME_REGEX}")
 
-def top3(df_po):
-    if df_po.empty: 
+def fmt_num(x: float) -> str:
+    return f"{int(x)}" if float(x).is_integer() else f"{x:.2f}"
+
+def totals_text(df_po: pd.DataFrame) -> str:
+    """Повертає текст підсумку виду '125 л, 18 кг, 47 шт' для конкретного PO."""
+    if df_po.empty:
+        return "0"
+    # заміна None на 'шт' на всяк випадок
+    units = df_po["unit"].fillna("шт")
+    sums = df_po.assign(unit=units).groupby("unit", dropna=False)["order_qty"].sum()
+    order = ["л", "кг", "шт"]
+    parts = []
+    for u in order:
+        if u in sums and sums[u] > 0:
+            parts.append(f"{fmt_num(sums[u])} {u}")
+    # якщо були інші одиниці — теж покажемо
+    for u, v in sums.items():
+        if u not in order and v > 0:
+            parts.append(f"{fmt_num(v)} {u}")
+    return ", ".join(parts) if parts else "0"
+
+def top3(df_po: pd.DataFrame) -> str:
+    if df_po.empty:
         return "—"
     x = df_po.sort_values("order_qty", ascending=False).head(3)
     return ", ".join(
-        f"{r.product_name} — {int(r.order_qty) if float(r.order_qty).is_integer() else r.order_qty} {r.unit}"
-        for r in x.itertuples()
+        f"{r.product_name} — {fmt_num(r.order_qty)} {r.unit}" for r in x.itertuples()
+    )
+
+def line_for_store(store_name: str, df_po: pd.DataFrame) -> str:
+    suppliers = df_po["supplier_name"].nunique() if not df_po.empty else 0
+    return (
+        f"Магазин {store_name}: {len(df_po)} позицій, постачальників: {suppliers}, "
+        f"підсумок: {totals_text(df_po)}. Топ: {top3(df_po)}"
     )
 
 def main():
@@ -88,11 +115,8 @@ def main():
     if not po_b.empty:
         po_b.to_csv(os.path.join(oe.OUT_DIR, "PO_Європейська_31а.csv"), index=False, encoding="utf-8-sig")
 
-    # summary (ЛИШЕ з реальних даних)
-    summary = (
-        f"Магазин {oe.STORE_A_NAME}: {len(po_a)} позицій. Топ: {top3(po_a)}\n"
-        f"Магазин {oe.STORE_B_NAME}: {len(po_b)} позицій. Топ: {top3(po_b)}"
-    )
+    # summary (реальні дані)
+    summary = f"{line_for_store(oe.STORE_A_NAME, po_a)}\n{line_for_store(oe.STORE_B_NAME, po_b)}"
     print("[SUMMARY]\n", summary)
 
     # Telegram
