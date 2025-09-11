@@ -31,7 +31,7 @@ jobs:
           IMAP_USER:          ${{ secrets.IMAP_USER }}
           IMAP_PASSWORD:      ${{ secrets.IMAP_PASSWORD }}
           IMAP_FOLDER:        ${{ secrets.IMAP_FOLDER }}
-          IMAP_FILENAME_REGEX: ${{ secrets.IMAP_FILENAME_REGEX }}   # ← зверніть увагу на ПРОБІЛ після :
+          IMAP_FILENAME_REGEX: ${{ secrets.IMAP_FILENAME_REGEX }}  # ← ОБОВʼЯЗКОВО з пробілом після :
           OUT_DIR: out
           DRY_RUN: "0"
         run: python github_runner_imap.py
