@@ -1,60 +1,35 @@
-name: Daily PO Run
+name: Daily PO (IMAP → Telegram)
 
 on:
-  workflow_dispatch:
   schedule:
-    # GitHub Actions працює в UTC.
-    # 00:15 Europe/Kyiv ≈ 21:15 UTC під час літнього часу (EEST, UTC+3)
-    # і 22:15 UTC під час зимового часу (EET, UTC+2).
-    - cron: "15 21 * * *"  # для EEST (літо)
-    - cron: "15 22 * * *"  # для EET (зима)
+    - cron: "15 6 * * *"   # 06:15 UTC
+  workflow_dispatch: {}
 
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
+        with: { python-version: "3.11" }
       - name: Install deps
-        run: pip install -r requirements.txt
-
-      - name: Fetch inventory from email (Excel → CSV)
-        env:
-          IMAP_HOST: ${{ secrets.IMAP_HOST }}
-          IMAP_USER: ${{ secrets.IMAP_USER }}
-          IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
-          IMAP_FOLDER: ${{ secrets.IMAP_FOLDER }}
-          IMAP_FILENAME_REGEX: ${{ secrets.IMAP_FILENAME_REGEX }}
         run: |
-          python -c "import os; print('IMAP_HOST=', os.getenv('IMAP_HOST'))"
-          python app/email_fetcher.py
-
-      - name: Run CLI (generate PO)
-        env:
-          SUPPLIER_EMAIL: ${{ secrets.SUPPLIER_EMAIL }}
-          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
-          FROM_EMAIL_APP_PASSWORD: ${{ secrets.FROM_EMAIL_APP_PASSWORD }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          DRY_RUN: ${{ secrets.DRY_RUN }}
-        run: |
-          python cli.py --sales sample_data/sales.csv --inventory sample_data/inventory.csv
-
-      - name: Telegram notify
-        if: always()
+          python -m pip install --upgrade pip
+          pip install pandas openpyxl xlrd==2.0.1 requests python-dotenv
+      - name: Run IMAP runner
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          python - <<'PY'
-          import os, requests
-          tok = os.getenv("TELEGRAM_BOT_TOKEN")
-          chat = os.getenv("TELEGRAM_CHAT_ID")
-          msg = "Daily PO Run завершено (див. артефакти / email)."
-          if tok and chat:
-              requests.post(f"https://api.telegram.org/bot{tok}/sendMessage", json={"chat_id": chat, "text": msg})
-          PY
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          IMAP_HOST:          ${{ secrets.IMAP_HOST }}
+          IMAP_USER:          ${{ secrets.IMAP_USER }}
+          IMAP_PASSWORD:      ${{ secrets.IMAP_PASSWORD }}
+          IMAP_FOLDER:        ${{ secrets.IMAP_FOLDER }}
+          IMAP_FILENAME_REGEX:${{ secrets.IMAP_FILENAME_REGEX }}
+          OUT_DIR: out
+          DRY_RUN: "0"
+        run: python github_runner_imap.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beer-pos
+          path: out/*.csv
