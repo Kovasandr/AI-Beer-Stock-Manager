@@ -5,13 +5,17 @@ on:
     - cron: "15 6 * * *"   # 06:15 UTC
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
+        with:
+          python-version: "3.11"
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
@@ -24,7 +28,7 @@ jobs:
           IMAP_USER:          ${{ secrets.IMAP_USER }}
           IMAP_PASSWORD:      ${{ secrets.IMAP_PASSWORD }}
           IMAP_FOLDER:        ${{ secrets.IMAP_FOLDER }}
-          IMAP_FILENAME_REGEX:${{ secrets.IMAP_FILENAME_REGEX }}
+          IMAP_FILENAME_REGEX: ${{ secrets.IMAP_FILENAME_REGEX }}
           OUT_DIR: out
           DRY_RUN: "0"
         run: python github_runner_imap.py
@@ -33,3 +37,4 @@ jobs:
         with:
           name: beer-pos
           path: out/*.csv
+          if-no-files-found: warn
