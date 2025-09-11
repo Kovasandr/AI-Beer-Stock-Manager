@@ -1,55 +1,60 @@
 name: Daily PO Run
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: "0 7 * * *"   # щодня о 07:00 UTC (10:00 за Києвом)
-  workflow_dispatch: {}
+    # GitHub Actions працює в UTC.
+    # 00:15 Europe/Kyiv ≈ 21:15 UTC під час літнього часу (EEST, UTC+3)
+    # і 22:15 UTC під час зимового часу (EET, UTC+2).
+    - cron: "15 21 * * *"  # для EEST (літо)
+    - cron: "15 22 * * *"  # для EET (зима)
 
 jobs:
-  run-po:
+  run:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Install deps
+        run: pip install -r requirements.txt
 
-      - name: Prepare env
+      - name: Fetch inventory from email (Excel → CSV)
+        env:
+          IMAP_HOST: ${{ secrets.IMAP_HOST }}
+          IMAP_USER: ${{ secrets.IMAP_USER }}
+          IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
+          IMAP_FOLDER: ${{ secrets.IMAP_FOLDER }}
+          IMAP_FILENAME_REGEX: ${{ secrets.IMAP_FILENAME_REGEX }}
+        run: |
+          python -c "import os; print('IMAP_HOST=', os.getenv('IMAP_HOST'))"
+          python app/email_fetcher.py
+
+      - name: Run CLI (generate PO)
         env:
           SUPPLIER_EMAIL: ${{ secrets.SUPPLIER_EMAIL }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           FROM_EMAIL_APP_PASSWORD: ${{ secrets.FROM_EMAIL_APP_PASSWORD }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
           DRY_RUN: ${{ secrets.DRY_RUN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python cli.py --sales sample_data/sales.csv --inventory sample_data/inventory.csv
+
+      - name: Telegram notify
+        if: always()
+        env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          SALES_CSV_URL: ${{ secrets.SALES_CSV_URL }}
-          INVENTORY_CSV_URL: ${{ secrets.INVENTORY_CSV_URL }}
         run: |
-          echo "SUPPLIER_EMAIL=${SUPPLIER_EMAIL}" >> $GITHUB_ENV
-          echo "FROM_EMAIL=${FROM_EMAIL}" >> $GITHUB_ENV
-          echo "FROM_EMAIL_APP_PASSWORD=${FROM_EMAIL_APP_PASSWORD}" >> $GITHUB_ENV
-          echo "DRY_RUN=${DRY_RUN}" >> $GITHUB_ENV
-          echo "OPENAI_API_KEY=${OPENAI_API_KEY}" >> $GITHUB_ENV
-          echo "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}" >> $GITHUB_ENV
-          echo "TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}" >> $GITHUB_ENV
-          echo "SALES_CSV_URL=${SALES_CSV_URL}" >> $GITHUB_ENV
-          echo "INVENTORY_CSV_URL=${INVENTORY_CSV_URL}" >> $GITHUB_ENV
-
-      - name: Run CLI (use URLs if set, otherwise sample_data)
-        run: |
-          set -e
-          if [ -n "${SALES_CSV_URL}" ]; then SALES_ARG="${SALES_CSV_URL}"; else SALES_ARG="sample_data/sales.csv"; fi
-          if [ -n "${INVENTORY_CSV_URL}" ]; then INV_ARG="${INVENTORY_CSV_URL}"; else INV_ARG="sample_data/inventory.csv"; fi
-          echo "Using sales: ${SALES_ARG}"
-          echo "Using inventory: ${INV_ARG}"
-          python cli.py --sales "${SALES_ARG}" --inventory "${INV_ARG}" --supplier-email "${SUPPLIER_EMAIL}"
+          python - <<'PY'
+          import os, requests
+          tok = os.getenv("TELEGRAM_BOT_TOKEN")
+          chat = os.getenv("TELEGRAM_CHAT_ID")
+          msg = "Daily PO Run завершено (див. артефакти / email)."
+          if tok and chat:
+              requests.post(f"https://api.telegram.org/bot{tok}/sendMessage", json={"chat_id": chat, "text": msg})
+          PY
