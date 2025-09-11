@@ -60,6 +60,7 @@ FROM_EMAIL_APP_PASSWORD → App Password (згенерований у Gmail аб
 DRY_RUN → 1 (тільки прев’ю) або 0 (реальна відправка)
 
 Активуйте workflow: .github/workflows/daily-run.yml
+
 🧪 Демодані
 
 sample_data/sales.csv — історія продажів (колонки: date, sku, qty)
