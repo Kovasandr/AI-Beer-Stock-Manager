@@ -1,46 +1,13 @@
-name: Generate PO and Send to Telegram
-
-on:
-  workflow_dispatch: {}
-  schedule:
-    # Щодня о 06:15 UTC (09:15 Київ взимку / 08:15 влітку)
-    - cron: "15 6 * * *"
-
-permissions:
-  contents: read
-
-jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
-          pip install pandas openpyxl xlrd==2.0.1 requests python-dotenv
-
-      - name: Run runner
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
-          GMAIL_USER:         ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          OUT_DIR: out
-          DRY_RUN: "0"
-        run: |
-          python github_runner.py
-
-      - name: Upload artifacts (CSV)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: beer-pos
-          path: out/*.csv
+- name: Run IMAP runner
+  env:
+    TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+    IMAP_HOST:          ${{ secrets.IMAP_HOST }}
+    IMAP_USER:          ${{ secrets.IMAP_USER }}
+    IMAP_PASSWORD:      ${{ secrets.IMAP_PASSWORD }}
+    IMAP_FOLDER:        ${{ secrets.IMAP_FOLDER }}
+    IMAP_FILENAME_REGEX:${{ secrets.IMAP_FILENAME_REGEX }}
+    OUT_DIR: out
+    DRY_RUN: "0"
+  run: |
+    python github_runner_imap.py
